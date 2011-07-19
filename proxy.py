@@ -16,19 +16,38 @@ def matchSFUrl( path ):
     else:
         return True
 
-class CopyOpener( urllib.FancyURLopener ):
-    def openWithHeaders(self, url, headers):
-        
-        
-        self.addheaders = [ ('User-Agent', headers.get('User-Agent')),
-                            ('Referer', headers.get('Referer')),
-                            ('Accept', headers.get('Accept')),
-                            #('Accept-Encoding', headers.get('Accept-Encoding')),
-                            ('Accept-Language', headers.get('Accept-Language')),
-                            ('Accept-Charset', headers.get('Accept-Charset'))]
 
-       # print self.addheaders
+class CopyOpener( urllib.FancyURLopener ):
+    __conditional_list = [ 'User-Agent', 'Referer', 'Accept', 'Accept-Language',
+                           'Accept-Charset', 'Etag'
+        #                   'Keep-Alive',
+          #                 'Proxy-Connection',
+                           #'Cache-Control',
+                           'Cookie' ]
+    def conditionalCopyHeaders(self, headers):
+        self.addheaders = []
+        for pos in self.__conditional_list:
+            val = headers.get(pos)
+            if val:
+                self.addheaders.append((pos, val))
+        print self.addheaders
         
+    def openWithHeaders(self, url, headers):
+        self.conditionalCopyHeaders(headers)
+##        
+##        self.addheaders = [ ('User-Agent', headers.get('User-Agent')),
+##                            ('Referer', headers.get('Referer')),
+##                            ('Accept', headers.get('Accept')),
+##                           # ('Accept-Encoding', headers.get('Accept-Encoding')),
+##                            ('Accept-Language', headers.get('Accept-Language')),
+##                            ('Accept-Charset', headers.get('Accept-Charset')),
+##                            ('Keep-Alive: 115', headers.get('Keep-Alive'))]
+##        cookie = headers.get('Cookie')
+##        if cookie and False:
+##            self.addheaders.append(('Cookie', cookie))
+        
+       # print self.addheaders
+        #print "Url:",url
         
         return self.open(url)
         
@@ -40,18 +59,19 @@ class Proxy(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.end_headers()
         #print self.headers
         dataobj = CopyOpener().openWithHeaders(self.path, self.headers)
-       
-
+        print self.path
+        print self.headers
         #print sfdata.readlines()
         
-        if matchSFUrl( self.path ):
+        if matchSFUrl( self.path )  and False :
             sfdata = cStringIO.StringIO()
             shutil.copyfileobj(dataobj, sfdata)
             
             print "request has arrived " + self.path
-
+            print sfdata.getvalue()
             sfdata.seek(0)
             dataobj = sfdata
+            dataobj.seek(0)
             
         
         self.copyfile(dataobj, self.wfile)
