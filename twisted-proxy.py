@@ -4,6 +4,7 @@ import urlparse
 from urllib import quote as urlquote
 
 from twisted.web import proxy, http
+
 from twisted.internet import reactor
 from twisted.python import log
 import sys
@@ -27,6 +28,8 @@ class SF:
         self.headers = headers
         self.baseData = baseData
         self.buffer = cStringIO.StringIO()
+    
+        
     def handlePart( self, buffer):
         print type(buffer)
         self.buffer.write(buffer)
@@ -37,17 +40,15 @@ class SF:
             self.buffer.seek(0)
             gzipper = gzip.GzipFile(fileobj=self.buffer)
             gz = gzipper.read()
-            print gz
+            
 
 
-class ProxyClientT ( proxy.ProxyClient ):
+class ShakeProxyClient ( proxy.ProxyClient ):
     def __init__(self, command, rest, version, headers, data, father):
         proxy.ProxyClient.__init__(self, command, rest, version, headers, data, father)
         self.sf = None
         if sfgamePat.match(rest):
             self.sf = SF(rest, command, headers, data)
-
-
 
     def handleHeader(self, key, value):
         proxy.ProxyClient.handleHeader(self,key,value)
@@ -65,11 +66,11 @@ class ProxyClientT ( proxy.ProxyClient ):
             self.sf.handleEnd()
 
 
-class ProxyClientFactoryT ( proxy.ProxyClientFactory ):
-    protocol = ProxyClientT
+class ShakeProxyClientFactory ( proxy.ProxyClientFactory ):
+    protocol = ShakeProxyClient
 
-class ProxyRequestT ( proxy.ProxyRequest ):
-    protocols = {'http': ProxyClientFactoryT}
+class ShakeProxyThroughProxyRequest ( proxy.ProxyRequest ):
+    protocols = {'http': ShakeProxyClientFactory }
 
     def process(self):
         parsed = urlparse.urlparse(self.uri)
@@ -88,21 +89,26 @@ class ProxyRequestT ( proxy.ProxyRequest ):
             headers['host'] = host
         self.content.seek(0, 0)
         s = self.content.read()
-        clientFactory = class_(self.method, self.uri, self.clientproto, headers,
+        clientFactory = class_(self.method, rest, self.clientproto, headers,
                                s, self)
-#self.reactor.connectTCP(host, port, clientFactory)
+#        self.reactor.connectTCP(host, port, clientFactory)
         self.reactor.connectTCP("wro-proxy.eu.tieto.com", 8080, clientFactory)
-    
-class ProxyT( proxy.Proxy ):
-    requestFactory=ProxyRequestT
+class ShakeProxyThroughProxy( proxy.Proxy ):
+    requestFactory = ShakeProxyThroughProxyRequest
 
-class ProxyFactory(http.HTTPFactory):
-    protocol = ProxyT
+
+class ShakeProxyRequest ( proxy.ProxyRequest ):
+    protocols = {'http': ShakeProxyClientFactory }
+    
+class ShakeProxy( proxy.Proxy ):
+    requestFactory = ShakeProxyRequest
+
+class ShakeProxyFactory(http.HTTPFactory):
+    protocol = ShakeProxy
 
 #    def __init__(self, *args, **kw):
 #      http.HTTPFactory.__init__(self,*args, **kw)
 
-    
-            
-reactor.listenTCP(8080, ProxyFactory())
+                
+reactor.listenTCP(8080, ShakeProxyFactory())
 reactor.run()
