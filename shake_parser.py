@@ -1,27 +1,7 @@
-#!/usr/bin/env python2.7
-
-import urlparse
-from urllib import quote as urlquote
-
-from twisted.web import proxy, http
-
-from twisted.internet import reactor
-from twisted.python import log
-import sys
-
 import re
-import threading
-from datetime import datetime
-
-import gzip, cStringIO
-
-log.startLogging(sys.stdout)
-
-    
-
-sfgamePat = re.compile("http://s[0-9]\.sfgame\.pl/request.*")
 sfURIre = re.compile(u".*req=(?P<hash>.{32})(?P<id>.+?)\&.*rnd=(?P<rnd>[0-9]+).*")
-t= u"http://s8.sfgame.pl/request.php?req=33d2FS09VQ82T6K423G99f14096812ddd4010&random=%2&rnd=26672031"
+sfgamePat = re.compile("http://s[0-9]\.sfgame\.pl/request.*")
+
 
 class SFParseException(Exception):
     def __init__(self, uri, other_info=""):
@@ -29,11 +9,6 @@ class SFParseException(Exception):
         self.other_info= other_info
     def __str__(self):
         return repr("URL: %s \nOther: %s " % (self.uri, self.other_info))
-
-tavern = "010"
-arena = "011"
-
-
 
 class BasePageParser:
     callback=None
@@ -105,14 +80,6 @@ class TavernParser( BasePageParser ):
             if t_exp > high_exp:
                 res_exp = i
                 high_exp = t_exp
-            
-        print current_gold
-        print
-        print
-        print res_exp+1
-        print
-        print
-        cnt =0 
         return base
         
 
@@ -157,74 +124,4 @@ class SF:
             if gz and self.parser:
                 self.parser.parse(self.uri, gz)
 
-
-class ShakeProxyClient ( proxy.ProxyClient ):
-    def __init__(self, command, rest, version, headers, data, father):
-        proxy.ProxyClient.__init__(self, command, rest, version, headers, data, father)
-        self.sf = None
-        if sfgamePat.match(self.father.uri):
-            self.sf = SF(self.father.uri, {"father_uri": self.father.uri, "uri": rest, "cmd": command, "headers": headers, "data": data})
-
-    def handleHeader(self, key, value):
-        proxy.ProxyClient.handleHeader(self,key,value)
-        if self.sf:
-            pass
-            #print "header:", key, value
-
-    def handleResponsePart(self, buffer ):
-        proxy.ProxyClient.handleResponsePart(self, buffer)
-        if self.sf:
-            self.sf.handlePart(buffer)
-
-    def handleResponseEnd(self):
-        proxy.ProxyClient.handleResponseEnd(self)
-        if self.sf:
-            self.sf.handleEnd()
-
-
-class ShakeProxyClientFactory ( proxy.ProxyClientFactory ):
-    protocol = ShakeProxyClient
-
-class ShakeProxyThroughProxyRequest ( proxy.ProxyRequest ):
-    protocols = {'http': ShakeProxyClientFactory }
-
-    def process(self):
-        parsed = urlparse.urlparse(self.uri)
-        protocol = parsed[0]
-        host = parsed[1]
-        port = self.ports[protocol]
-        if ':' in host:
-            host, port = host.split(':')
-            port = int(port)
-        rest = urlparse.urlunparse(('', '') + parsed[2:])
-        if not rest:
-            rest = rest + '/'
-        class_ = self.protocols[protocol]
-        headers = self.getAllHeaders().copy()
-        if 'host' not in headers:
-            headers['host'] = host
-        self.content.seek(0, 0)
-        s = self.content.read()
-        clientFactory = class_(self.method, rest, self.clientproto, headers,
-                               s, self)
-#        self.reactor.connectTCP(host, port, clientFactory)
-        self.reactor.connectTCP("wro-proxy.eu.tieto.com", 8080, clientFactory)
-class ShakeProxyThroughProxy( proxy.Proxy ):
-    requestFactory = ShakeProxyThroughProxyRequest
-
-
-class ShakeProxyRequest ( proxy.ProxyRequest ):
-    protocols = {'http': ShakeProxyClientFactory }
-    
-class ShakeProxy( proxy.Proxy ):
-    requestFactory = ShakeProxyRequest
-
-class ShakeProxyFactory(http.HTTPFactory):
-    protocol = ShakeProxy
-
-#    def __init__(self, *args, **kw):
-#      http.HTTPFactory.__init__(self,*args, **kw)
-
-                
-reactor.listenTCP(8080, ShakeProxyFactory())
-reactor.run()
+class
